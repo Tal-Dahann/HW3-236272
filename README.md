@@ -20,4 +20,4 @@ ask!!!!!!
 
 ##### Question 3
 
-`GestureDetector` provides the developer with more controller (such as dragging) while `InkWell` has a ripple effect when clicking it.
+`GestureDetector` provides the developer with more control (it gives more gesture detection options such dragging, pinching) while `InkWell` has a ripple effect when clicking it.
