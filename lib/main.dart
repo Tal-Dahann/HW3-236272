@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:snapping_sheet/snapping_sheet.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -394,6 +395,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _emailField = TextEditingController();
   final _passwordField = TextEditingController();
+
 
   void displayFailSnackbar(String failString) {
     SnackBar failedSnackbar = SnackBar(
