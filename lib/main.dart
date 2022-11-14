@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -26,9 +28,9 @@ class App extends StatelessWidget {
                       textDirection: TextDirection.ltr)));
         }
         if (snapshot.connectionState == ConnectionState.done) {
-          return MyApp();
+          return const MyApp();
         }
-        return Center(child: CircularProgressIndicator());
+        return const Center(child: CircularProgressIndicator());
       },
     );
   }
@@ -130,7 +132,7 @@ class SavedNotifier extends ChangeNotifier {
     if (auth.status == Status.authenticated) {
       if (merge) {
         var prevDoc =
-        await _firestore.collection('Users').doc(auth.user?.uid).get();
+            await _firestore.collection('Users').doc(auth.user?.uid).get();
         _saved.addAll(((prevDoc.data()?['saved'] ?? <String>[]) as List)
             .map((element) => element as String));
       }
@@ -196,6 +198,7 @@ class _RandomWordsState extends State<RandomWords> {
   final _suggestions = <String>[];
   final _biggerFont = const TextStyle(fontSize: 18);
   final wordPair = WordPair.random();
+  final _snappingSheetController = SnappingSheetController();
 
   Future<bool?> showAlertDialog(String toDelete) {
     AlertDialog alert = AlertDialog(
@@ -318,9 +321,53 @@ class _RandomWordsState extends State<RandomWords> {
     context.read<AuthNotifier>().signOut();
   }
 
+  bool isSnapPressed = false;
+  var initPos;
+
+  Widget ItemsList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16.0),
+      itemBuilder: (context, i) {
+        //for odd tiles, we just return a divider.
+        if (i.isOdd) return const Divider();
+
+        final index = i ~/ 2;
+        //generateWordPairs().take(10) returns 10 random word pairs
+        //we then add all of those to _suggestions
+        if (index >= _suggestions.length) {
+          _suggestions
+              .addAll(generateWordPairs().take(10).map((e) => e.asPascalCase));
+        }
+        final alreadySaved =
+            context.watch<SavedNotifier>().saved.contains(_suggestions[index]);
+        return ListTile(
+          title: Text(
+            _suggestions[index],
+            style: _biggerFont,
+          ),
+          trailing: Icon(
+            alreadySaved ? Icons.favorite : Icons.favorite_border,
+            color: alreadySaved ? Colors.red : null,
+            semanticLabel: alreadySaved ? 'Remove from saved' : 'Save',
+          ),
+          onTap: () {
+            setState(() {
+              if (alreadySaved) {
+                context.read<SavedNotifier>().remove(_suggestions[index]);
+              } else {
+                context.read<SavedNotifier>().add(_suggestions[index]);
+              }
+            });
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     Status currStatus = context.watch<AuthNotifier>().status;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Startup Name Generator'),
@@ -340,45 +387,106 @@ class _RandomWordsState extends State<RandomWords> {
           ),
         ],
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemBuilder: (context, i) {
-          //for odd tiles, we just return a divider.
-          if (i.isOdd) return const Divider();
-
-          final index = i ~/ 2;
-          //generateWordPairs().take(10) returns 10 random word pairs
-          //we then add all of those to _suggestions
-          if (index >= _suggestions.length) {
-            _suggestions.addAll(
-                generateWordPairs().take(10).map((e) => e.asPascalCase));
-          }
-          final alreadySaved = context
-              .watch<SavedNotifier>()
-              .saved
-              .contains(_suggestions[index]);
-          return ListTile(
-            title: Text(
-              _suggestions[index],
-              style: _biggerFont,
-            ),
-            trailing: Icon(
-              alreadySaved ? Icons.favorite : Icons.favorite_border,
-              color: alreadySaved ? Colors.red : null,
-              semanticLabel: alreadySaved ? 'Remove from saved' : 'Save',
-            ),
-            onTap: () {
-              setState(() {
-                if (alreadySaved) {
-                  context.read<SavedNotifier>().remove(_suggestions[index]);
-                } else {
-                  context.read<SavedNotifier>().add(_suggestions[index]);
-                }
-              });
-            },
-          );
-        },
-      ),
+      body: (currStatus == Status.authenticated)
+          ? SafeArea(
+              bottom: false,
+              child: SnappingSheet(
+                snappingPositions: [
+                  const SnappingPosition.factor(
+                      positionFactor: 0,
+                      grabbingContentOffset: GrabbingContentOffset.top),
+                  const SnappingPosition.factor(positionFactor: 0.2),
+                ],
+                controller: _snappingSheetController,
+                grabbingHeight: 50,
+                grabbing: InkWell(
+                  onTap: () {
+                    if (!isSnapPressed) {
+                      initPos = _snappingSheetController.currentPosition;
+                      _snappingSheetController.snapToPosition(
+                          const SnappingPosition.factor(positionFactor: 0.20));
+                      isSnapPressed = true;
+                    } else {
+                      _snappingSheetController.snapToPosition(
+                          const SnappingPosition.factor(
+                              positionFactor: 0,
+                              grabbingContentOffset:
+                                  GrabbingContentOffset.top));
+                      isSnapPressed = false;
+                    }
+                  },
+                  child: Container(
+                    color: Colors.blueGrey.shade100,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Text(
+                          "Welcome back, ${context.watch<AuthNotifier>().user!.email}",
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                        const Icon(Icons.keyboard_arrow_up)
+                      ],
+                    ),
+                  ),
+                ),
+                sheetBelow: SnappingSheetContent(
+                  sizeBehavior: SheetSizeStatic(size: 120),
+                  draggable: false,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Container(
+                      color: Colors.white,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          const Flexible(
+                              fit: FlexFit.tight,
+                              flex: 2,
+                              child: CircleAvatar(
+                                radius: 35,
+                              )),
+                          Flexible(
+                            flex: 5,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Flexible(
+                                  flex: 3,
+                                  child: Text(
+                                    '${context.read<AuthNotifier>().user!.email}',
+                                    style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w400),
+                                  ),
+                                ),
+                                Flexible(
+                                  flex: 1,
+                                  child: ElevatedButton(
+                                    child: Container(
+                                      color: Colors.blue,
+                                      child: const Text(
+                                        'Change Avatar',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w400),
+                                      ),
+                                    ),
+                                    onPressed:
+                                        () {}, //! ADD CHANGE AVATAR BUTTON
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                child: ItemsList(),
+              ),
+            )
+          : ItemsList(),
     );
   }
 }
@@ -395,7 +503,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _emailField = TextEditingController();
   final _passwordField = TextEditingController();
-
+  final _confirmPassword = TextEditingController();
 
   void displayFailSnackbar(String failString) {
     SnackBar failedSnackbar = SnackBar(
@@ -422,15 +530,57 @@ class _LoginPageState extends State<LoginPage> {
   void _onSignUpButtonPress() async {
     String email = _emailField.text.toString();
     String password = _passwordField.text.toString();
-    UserCredential? ret =
-        await context.read<AuthNotifier>().signUp(email, password);
-    if (ret == null) {
-      //displayFailedSignup
-      displayFailSnackbar('There was an error Signing-Up to the app');
-    } else {
-      //print(ret);
-      Navigator.of(context).pop();
-    }
+    //Disply bottom sheet modal and confirm password here
+    showModalBottomSheet(
+
+        context: context,
+        builder: (BuildContext context) {
+          return SizedBox(
+            height: MediaQuery.of(context).size.height * 0.25 +
+                MediaQuery.of(context).viewInsets.bottom,
+            child: Column(
+              children: [
+                const Padding(padding: EdgeInsets.only(top: 10)),
+                const Text('Please confirm your password below:'),
+                const Divider(
+                  thickness: 2,
+                  endIndent: 40,
+                  indent: 40,
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: TextFormField(
+                    controller: _confirmPassword,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                        hintText: 'Re-Enter Password'),
+                  ),
+                ),
+                ElevatedButton(
+                    onPressed: () async {
+                      UserCredential? ret = await context
+                          .read<AuthNotifier>()
+                          .signUp(email, password);
+                      if (ret == null) {
+                        //displayFailedSignup
+                        displayFailSnackbar(
+                            'There was an error Signing-Up to the app');
+                      } else {
+                        //print(ret);
+                        Navigator.of(context).pop();
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    child: Container(
+                      width: MediaQuery.of(context).size.width * 0.25,
+                      color: Colors.blue,
+                      child: const Center(child: Text('Confirm')),
+                    ))
+              ],
+            ),
+          );
+        });
+    //
   }
 
   @override
@@ -469,6 +619,7 @@ class _LoginPageState extends State<LoginPage> {
               ? TextButton(
                   onPressed: _onLoginButtonPress,
                   child: Container(
+                    width: MediaQuery.of(context).size.width * 0.8,
                     padding: const EdgeInsets.only(
                       left: 60.0,
                       right: 60.0,
@@ -479,8 +630,10 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(9.0),
                       color: Colors.deepPurple,
                     ),
-                    child: const Text('Log In',
-                        style: TextStyle(color: Colors.white)),
+                    child: const Center(
+                      child:
+                          Text('Log In', style: TextStyle(color: Colors.white)),
+                    ),
                   ),
                 )
               : const Padding(
@@ -492,6 +645,7 @@ class _LoginPageState extends State<LoginPage> {
               ? TextButton(
                   onPressed: _onSignUpButtonPress, // ! Change to _onSignUpPress
                   child: Container(
+                    width: MediaQuery.of(context).size.width * 0.8,
                     padding: const EdgeInsets.only(
                       left: 60.0,
                       right: 60.0,
@@ -500,10 +654,12 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(9.0),
-                      color: Colors.deepPurple,
+                      color: Colors.blue,
                     ),
-                    child: const Text('Sign up',
-                        style: TextStyle(color: Colors.white)),
+                    child: const Center(
+                      child: Text('New user? Click to sign up',
+                          style: TextStyle(color: Colors.white)),
+                    ),
                   ),
                 )
               : const Padding(
