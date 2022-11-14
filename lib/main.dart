@@ -433,9 +433,16 @@ class _RandomWordsState extends State<RandomWords> {
               child: SnappingSheet(
                 snappingPositions: const [
                   SnappingPosition.factor(
+                      snappingCurve: Curves.elasticOut,
+                      snappingDuration: Duration(milliseconds: 1200),
                       positionFactor: 0,
                       grabbingContentOffset: GrabbingContentOffset.top),
-                  SnappingPosition.factor(positionFactor: 0.2),
+                  SnappingPosition.factor(
+                    positionFactor: 0.2,
+                    snappingCurve: Curves.elasticOut,
+                    snappingDuration: Duration(milliseconds: 1200),
+
+                  ),
                 ],
                 controller: _snappingSheetController,
                 grabbingHeight: 50,
