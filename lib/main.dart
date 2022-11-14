@@ -391,11 +391,11 @@ class _RandomWordsState extends State<RandomWords> {
           ? SafeArea(
               bottom: false,
               child: SnappingSheet(
-                snappingPositions: [
-                  const SnappingPosition.factor(
+                snappingPositions: const [
+                  SnappingPosition.factor(
                       positionFactor: 0,
                       grabbingContentOffset: GrabbingContentOffset.top),
-                  const SnappingPosition.factor(positionFactor: 0.2),
+                  SnappingPosition.factor(positionFactor: 0.2),
                 ],
                 controller: _snappingSheetController,
                 grabbingHeight: 50,
@@ -430,7 +430,9 @@ class _RandomWordsState extends State<RandomWords> {
                   ),
                 ),
                 sheetBelow: SnappingSheetContent(
-                  sizeBehavior: SheetSizeStatic(size: MediaQuery.of(context).size.height, expandOnOverflow: false),
+                  sizeBehavior: SheetSizeStatic(
+                      size: MediaQuery.of(context).size.height,
+                      expandOnOverflow: false),
                   draggable: false,
                   child: Align(
                     alignment: Alignment.topCenter,
@@ -441,29 +443,33 @@ class _RandomWordsState extends State<RandomWords> {
                           Container(
                             transformAlignment: FractionalOffset.topCenter,
                             height: 120,
-                          child: Row(
+                            child: Row(
                               //mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
                                 const Flexible(
                                     fit: FlexFit.tight,
                                     flex: 2,
                                     child: CircleAvatar(
-                                      backgroundImage: AssetImage('images/blank profile picture.jpg'),
+                                      backgroundImage: AssetImage(
+                                          'images/blank profile picture.jpg'),
                                       radius: 35,
                                     )),
-                                const Padding(padding: EdgeInsets.only(left:20)),
+                                const Padding(
+                                    padding: EdgeInsets.only(left: 20)),
                                 Flexible(
                                   flex: 5,
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
                                     children: [
                                       Flexible(
                                         flex: 3,
                                         child: Text(
                                           '${context.read<AuthNotifier>().user!.email}',
                                           style: const TextStyle(
-                                              fontSize: 20,
+                                              fontSize: 18,
                                               fontWeight: FontWeight.w400),
                                         ),
                                       ),
@@ -488,7 +494,9 @@ class _RandomWordsState extends State<RandomWords> {
                               ],
                             ),
                           ),
-                          SizedBox(height: MediaQuery.of(context).size.height*0.5,)
+                          SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.5,
+                          )
                         ],
                       ),
                     ),
@@ -518,10 +526,10 @@ class _LoginPageState extends State<LoginPage> {
 
   void displayFailSnackbar(String failString) {
     SnackBar failedSnackbar = SnackBar(
-      content: Text(failString),
-      duration: const Duration(seconds: 3),
-      padding: const EdgeInsets.all(15.0),
-    );
+        content: Text(failString),
+        duration: const Duration(seconds: 3),
+        padding: const EdgeInsets.all(15.0),
+        behavior: SnackBarBehavior.floating);
     ScaffoldMessenger.of(context).showSnackBar(failedSnackbar);
   }
 
@@ -541,32 +549,45 @@ class _LoginPageState extends State<LoginPage> {
   void _onSignUpButtonPress() async {
     String email = _emailField.text.toString();
     String password = _passwordField.text.toString();
+    final _confirmPasswordFormKey = GlobalKey<FormState>();
     //Disply bottom sheet modal and confirm password here
     showModalBottomSheet(
-        context: context,
-        builder: (BuildContext context) {
-          return SizedBox(
-            height: MediaQuery.of(context).size.height * 0.25 +
-                MediaQuery.of(context).viewInsets.bottom,
-            child: Column(
-              children: [
-                const Padding(padding: EdgeInsets.only(top: 10)),
-                const Text('Please confirm your password below:'),
-                const Divider(
-                  thickness: 2,
-                  endIndent: 40,
-                  indent: 40,
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(10.0),
+      context: context,
+      builder: (BuildContext context) {
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * 0.25 +
+              MediaQuery.of(context).viewInsets.bottom,
+          child: Column(
+            children: [
+              const Padding(padding: EdgeInsets.only(top: 10)),
+              const Text('Please confirm your password below:'),
+              const Divider(
+                thickness: 2,
+                endIndent: 40,
+                indent: 40,
+              ),
+              Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Form(
+                  key: _confirmPasswordFormKey,
                   child: TextFormField(
-                    controller: _confirmPassword,
+                    validator: (value) {
+                      if (value.toString() != password) {
+                        return 'Passwords must match';
+                      }
+                      return null;
+                    },
+                    //controller: _confirmPassword,
                     obscureText: true,
-                    decoration: InputDecoration(hintText: 'Re-Enter Password'),
+                    decoration: const InputDecoration(
+                      hintText: 'Re-Enter Password',
+                    ),
                   ),
                 ),
-                ElevatedButton(
-                    onPressed: () async {
+              ),
+              ElevatedButton(
+                  onPressed: () async {
+                    if (_confirmPasswordFormKey.currentState!.validate()) {
                       UserCredential? ret = await context
                           .read<AuthNotifier>()
                           .signUp(email, password);
@@ -579,16 +600,18 @@ class _LoginPageState extends State<LoginPage> {
                         Navigator.of(context).pop();
                         Navigator.of(context).pop();
                       }
-                    },
-                    child: Container(
-                      width: MediaQuery.of(context).size.width * 0.25,
-                      color: Colors.blue,
-                      child: const Center(child: Text('Confirm')),
-                    ))
-              ],
-            ),
-          );
-        });
+                    }
+                  },
+                  child: Container(
+                    width: MediaQuery.of(context).size.width * 0.25,
+                    color: Colors.blue,
+                    child: const Center(child: Text('Confirm')),
+                  ))
+            ],
+          ),
+        );
+      },
+    );
     //
   }
 
