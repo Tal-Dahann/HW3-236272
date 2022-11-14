@@ -127,6 +127,7 @@ class AuthNotifier extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    userImage = null;
     _auth.signOut();
     _status = Status.unauthenticated;
     notifyListeners();
@@ -360,6 +361,7 @@ class _RandomWordsState extends State<RandomWords> {
 
   void _onLogOutPress() {
     context.read<AuthNotifier>().signOut();
+    isSnapPressed = false;
   }
 
   bool isSnapPressed = false;
@@ -612,7 +614,6 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _emailField = TextEditingController();
   final _passwordField = TextEditingController();
-  final _confirmPassword = TextEditingController();
 
   void _onLoginButtonPress() async {
     String email = _emailField.text.toString();
