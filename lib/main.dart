@@ -430,54 +430,65 @@ class _RandomWordsState extends State<RandomWords> {
                   ),
                 ),
                 sheetBelow: SnappingSheetContent(
-                  sizeBehavior: SheetSizeStatic(size: 120),
+                  sizeBehavior: SheetSizeStatic(size: MediaQuery.of(context).size.height, expandOnOverflow: false),
                   draggable: false,
                   child: Align(
                     alignment: Alignment.topCenter,
                     child: Container(
                       color: Colors.white,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      child: Column(
                         children: [
-                          const Flexible(
-                              fit: FlexFit.tight,
-                              flex: 2,
-                              child: CircleAvatar(
-                                radius: 35,
-                              )),
-                          Flexible(
-                            flex: 5,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          Container(
+                            transformAlignment: FractionalOffset.topCenter,
+                            height: 120,
+                          child: Row(
+                              //mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
+                                const Flexible(
+                                    fit: FlexFit.tight,
+                                    flex: 2,
+                                    child: CircleAvatar(
+                                      backgroundImage: AssetImage('images/blank profile picture.jpg'),
+                                      radius: 35,
+                                    )),
+                                const Padding(padding: EdgeInsets.only(left:20)),
                                 Flexible(
-                                  flex: 3,
-                                  child: Text(
-                                    '${context.read<AuthNotifier>().user!.email}',
-                                    style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w400),
-                                  ),
-                                ),
-                                Flexible(
-                                  flex: 1,
-                                  child: ElevatedButton(
-                                    child: Container(
-                                      color: Colors.blue,
-                                      child: const Text(
-                                        'Change Avatar',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w400),
+                                  flex: 5,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                    children: [
+                                      Flexible(
+                                        flex: 3,
+                                        child: Text(
+                                          '${context.read<AuthNotifier>().user!.email}',
+                                          style: const TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w400),
+                                        ),
                                       ),
-                                    ),
-                                    onPressed:
-                                        () {}, //! ADD CHANGE AVATAR BUTTON
+                                      Flexible(
+                                        flex: 1,
+                                        child: ElevatedButton(
+                                          child: Container(
+                                            color: Colors.blue,
+                                            child: const Text(
+                                              'Change Avatar',
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.w400),
+                                            ),
+                                          ),
+                                          onPressed:
+                                              () {}, //! ADD CHANGE AVATAR BUTTON
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
+                                )
                               ],
                             ),
-                          )
+                          ),
+                          SizedBox(height: MediaQuery.of(context).size.height*0.5,)
                         ],
                       ),
                     ),
@@ -532,7 +543,6 @@ class _LoginPageState extends State<LoginPage> {
     String password = _passwordField.text.toString();
     //Disply bottom sheet modal and confirm password here
     showModalBottomSheet(
-
         context: context,
         builder: (BuildContext context) {
           return SizedBox(
@@ -552,8 +562,7 @@ class _LoginPageState extends State<LoginPage> {
                   child: TextFormField(
                     controller: _confirmPassword,
                     obscureText: true,
-                    decoration: InputDecoration(
-                        hintText: 'Re-Enter Password'),
+                    decoration: InputDecoration(hintText: 'Re-Enter Password'),
                   ),
                 ),
                 ElevatedButton(
