@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:snapping_sheet/snapping_sheet.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,12 +39,23 @@ class App extends StatelessWidget {
   }
 }
 
+void displayFailSnackbar(BuildContext context, String failString) {
+  SnackBar failedSnackbar = SnackBar(
+      content: Text(failString),
+      duration: const Duration(seconds: 3),
+      padding: const EdgeInsets.all(15.0),
+      behavior: SnackBarBehavior.floating);
+  ScaffoldMessenger.of(context).showSnackBar(failedSnackbar);
+}
+
 enum Status { authenticated, authenticating, unauthenticated }
 
 class AuthNotifier extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
   User? _user;
   Status _status = Status.unauthenticated;
+  File? userImage;
 
   Status get status => _status;
 
@@ -58,6 +72,30 @@ class AuthNotifier extends ChangeNotifier {
       }
       notifyListeners();
     });
+  }
+
+  Future<void> uploadFile(XFile image, String cloudPath) async {
+    final path = '$cloudPath/${user!.uid}.png';
+    var fileRef = _storage.ref(path);
+    var file = File(image.path);
+    userImage = file;
+    try {
+      notifyListeners();
+      await fileRef.putFile(file);
+
+    } catch (e) {
+      log('error while uploading');
+    }
+  }
+
+  Future<ImageProvider> downloadFile(String cloudPath) async {
+    final path = '$cloudPath/${user!.uid}.png';
+    if (userImage == null) {
+      return NetworkImage(await _storage.ref(path).getDownloadURL());
+    }
+    else {
+      return FileImage(userImage!);
+    }
   }
 
   Future<UserCredential?> signUp(String email, String password) async {
@@ -81,7 +119,7 @@ class AuthNotifier extends ChangeNotifier {
       await _auth.signInWithEmailAndPassword(email: email, password: password);
       return true;
     } catch (e) {
-      print(e);
+      //print(e);
       _status = Status.unauthenticated;
       notifyListeners();
       return false;
@@ -132,7 +170,7 @@ class SavedNotifier extends ChangeNotifier {
     if (auth.status == Status.authenticated) {
       if (merge) {
         var prevDoc =
-            await _firestore.collection('Users').doc(auth.user?.uid).get();
+        await _firestore.collection('Users').doc(auth.user?.uid).get();
         _saved.addAll(((prevDoc.data()?['saved'] ?? <String>[]) as List)
             .map((element) => element as String));
       }
@@ -242,8 +280,11 @@ class _RandomWordsState extends State<RandomWords> {
   void _pushSaved() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (context) {
-        final tiles = context.watch<SavedNotifier>().saved.map(
-          (pair) {
+        final tiles = context
+            .watch<SavedNotifier>()
+            .saved
+            .map(
+              (pair) {
             return Dismissible(
               background: Container(
                 color: Colors.deepPurple,
@@ -273,9 +314,9 @@ class _RandomWordsState extends State<RandomWords> {
 
         final divided = tiles.isNotEmpty
             ? ListTile.divideTiles(
-                tiles: tiles,
-                context: context,
-              ).toList()
+          tiles: tiles,
+          context: context,
+        ).toList()
             : <Widget>[];
         return Scaffold(
           appBar: AppBar(
@@ -339,7 +380,10 @@ class _RandomWordsState extends State<RandomWords> {
               .addAll(generateWordPairs().take(10).map((e) => e.asPascalCase));
         }
         final alreadySaved =
-            context.watch<SavedNotifier>().saved.contains(_suggestions[index]);
+        context
+            .watch<SavedNotifier>()
+            .saved
+            .contains(_suggestions[index]);
         return ListTile(
           title: Text(
             _suggestions[index],
@@ -366,7 +410,11 @@ class _RandomWordsState extends State<RandomWords> {
 
   @override
   Widget build(BuildContext context) {
-    Status currStatus = context.watch<AuthNotifier>().status;
+    Status currStatus = context
+        .watch<AuthNotifier>()
+        .status;
+    // var _profilePictureUrl =
+    // context.read<AuthNotifier>().downloadFile('avatar_images');
 
     return Scaffold(
       appBar: AppBar(
@@ -389,122 +437,164 @@ class _RandomWordsState extends State<RandomWords> {
       ),
       body: (currStatus == Status.authenticated)
           ? SafeArea(
-              bottom: false,
-              child: SnappingSheet(
-                snappingPositions: const [
-                  SnappingPosition.factor(
-                      positionFactor: 0,
-                      grabbingContentOffset: GrabbingContentOffset.top),
-                  SnappingPosition.factor(positionFactor: 0.2),
-                ],
-                controller: _snappingSheetController,
-                grabbingHeight: 50,
-                grabbing: InkWell(
-                  onTap: () {
-                    if (!isSnapPressed) {
-                      initPos = _snappingSheetController.currentPosition;
-                      _snappingSheetController.snapToPosition(
-                          const SnappingPosition.factor(positionFactor: 0.20));
-                      isSnapPressed = true;
-                    } else {
-                      _snappingSheetController.snapToPosition(
-                          const SnappingPosition.factor(
-                              positionFactor: 0,
-                              grabbingContentOffset:
-                                  GrabbingContentOffset.top));
-                      isSnapPressed = false;
-                    }
-                  },
-                  child: Container(
-                    color: Colors.blueGrey.shade100,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Text(
-                          "Welcome back, ${context.watch<AuthNotifier>().user!.email}",
-                          style: const TextStyle(fontSize: 15),
-                        ),
-                        const Icon(Icons.keyboard_arrow_up)
-                      ],
-                    ),
+        bottom: false,
+        child: SnappingSheet(
+          snappingPositions: const [
+            SnappingPosition.factor(
+                positionFactor: 0,
+                grabbingContentOffset: GrabbingContentOffset.top),
+            SnappingPosition.factor(positionFactor: 0.2),
+          ],
+          controller: _snappingSheetController,
+          grabbingHeight: 50,
+          grabbing: InkWell(
+            onTap: () {
+              if (!isSnapPressed) {
+                initPos = _snappingSheetController.currentPosition;
+                _snappingSheetController.snapToPosition(
+                    const SnappingPosition.factor(positionFactor: 0.20));
+                setState(() {
+                  isSnapPressed = true;
+                });
+              } else {
+                _snappingSheetController.snapToPosition(
+                    const SnappingPosition.factor(
+                        positionFactor: 0,
+                        grabbingContentOffset:
+                        GrabbingContentOffset.top));
+                setState(() {
+                  isSnapPressed = false;
+                });
+              }
+            },
+            child: Container(
+              color: Colors.blueGrey.shade100,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  Text(
+                    "Welcome back, ${context
+                        .watch<AuthNotifier>()
+                        .user!
+                        .email}",
+                    style: const TextStyle(fontSize: 15),
                   ),
-                ),
-                sheetBelow: SnappingSheetContent(
-                  sizeBehavior: SheetSizeStatic(
-                      size: MediaQuery.of(context).size.height,
-                      expandOnOverflow: false),
-                  draggable: false,
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: Container(
-                      color: Colors.white,
-                      child: Column(
+                  (isSnapPressed) ? const Icon(Icons.keyboard_arrow_down) : const Icon(Icons.keyboard_arrow_up)
+                ],
+              ),
+            ),
+          ),
+          sheetBelow: SnappingSheetContent(
+            sizeBehavior: SheetSizeStatic(
+                size: MediaQuery
+                    .of(context)
+                    .size
+                    .height,
+                expandOnOverflow: false),
+            draggable: false,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Container(
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    Container(
+                      transformAlignment: FractionalOffset.topCenter,
+                      height: 120,
+                      child: Row(
+                        //mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          Container(
-                            transformAlignment: FractionalOffset.topCenter,
-                            height: 120,
-                            child: Row(
-                              //mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          Flexible(
+                            fit: FlexFit.tight,
+                            flex: 2,
+                            child: FutureBuilder<ImageProvider>(
+                                future: context.watch<AuthNotifier>().downloadFile('avatar_images'),
+                                builder: (BuildContext context,
+                                    AsyncSnapshot<ImageProvider> snapshot) {
+                                  if (snapshot.hasData) {
+                                    return CircleAvatar(
+                                      backgroundImage: snapshot.requireData,
+                                      radius: 40,
+                                        );
+                                  }
+                                  return const CircleAvatar(
+                                    backgroundImage: AssetImage(
+                                        'images/blank profile picture.jpg'),
+                                    radius: 40,
+                                  );
+                                },),
+                          ),
+                          const Padding(
+                              padding: EdgeInsets.only(left: 20)),
+                          Flexible(
+                            flex: 5,
+                            child: Column(
+                              crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                              mainAxisAlignment:
+                              MainAxisAlignment.spaceEvenly,
                               children: [
-                                const Flexible(
-                                    fit: FlexFit.tight,
-                                    flex: 2,
-                                    child: CircleAvatar(
-                                      backgroundImage: AssetImage(
-                                          'images/blank profile picture.jpg'),
-                                      radius: 35,
-                                    )),
-                                const Padding(
-                                    padding: EdgeInsets.only(left: 20)),
                                 Flexible(
-                                  flex: 5,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      Flexible(
-                                        flex: 3,
-                                        child: Text(
-                                          '${context.read<AuthNotifier>().user!.email}',
-                                          style: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w400),
-                                        ),
-                                      ),
-                                      Flexible(
-                                        flex: 1,
-                                        child: ElevatedButton(
-                                          child: Container(
-                                            color: Colors.blue,
-                                            child: const Text(
-                                              'Change Avatar',
-                                              style: TextStyle(
-                                                  fontWeight: FontWeight.w400),
-                                            ),
-                                          ),
-                                          onPressed:
-                                              () {}, //! ADD CHANGE AVATAR BUTTON
-                                        ),
-                                      ),
-                                    ],
+                                  flex: 3,
+                                  child: Text(
+                                    '${context
+                                        .read<AuthNotifier>()
+                                        .user!
+                                        .email}',
+                                    style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w400),
                                   ),
-                                )
+                                ),
+                                Flexible(
+                                  flex: 1,
+                                  child: ElevatedButton(
+                                    child: Container(
+                                      color: Colors.blue,
+                                      child: const Text(
+                                        'Change Avatar',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w400),
+                                      ),
+                                    ),
+                                    onPressed: () async {
+                                      final ImagePicker _picker =
+                                      ImagePicker();
+                                      final XFile? image =
+                                      await _picker.pickImage(
+                                          source:
+                                          ImageSource.gallery);
+                                      if (image == null) {
+                                        //User dismissed the gallery
+                                        displayFailSnackbar(context,
+                                            'No image selected.');
+                                        return;
+                                      } else {
+                                          context
+                                              .read<AuthNotifier>()
+                                              .uploadFile(
+                                              image, 'avatar_images');
+                                      }
+                                    }, //! ADD CHANGE AVATAR BUTTON
+                                  ),
+                                ),
                               ],
                             ),
-                          ),
-                          SizedBox(
-                            height: MediaQuery.of(context).size.height * 0.5,
                           )
                         ],
                       ),
                     ),
-                  ),
+                    // SizedBox(
+                    //   height: MediaQuery.of(context).size.height * 0.5,
+                    // )
+                  ],
                 ),
-                child: ItemsList(),
               ),
-            )
+            ),
+          ),
+          child: ItemsList(),
+        ),
+      )
           : ItemsList(),
     );
   }
@@ -524,22 +614,13 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordField = TextEditingController();
   final _confirmPassword = TextEditingController();
 
-  void displayFailSnackbar(String failString) {
-    SnackBar failedSnackbar = SnackBar(
-        content: Text(failString),
-        duration: const Duration(seconds: 3),
-        padding: const EdgeInsets.all(15.0),
-        behavior: SnackBarBehavior.floating);
-    ScaffoldMessenger.of(context).showSnackBar(failedSnackbar);
-  }
-
   void _onLoginButtonPress() async {
     String email = _emailField.text.toString();
     String password = _passwordField.text.toString();
     bool ret = await context.read<AuthNotifier>().signIn(email, password);
     if (ret == false) {
       //display snackbar of failed login 'There was an error logging into the app'
-      displayFailSnackbar('There was an error logging into the app');
+      displayFailSnackbar(context, 'There was an error logging into the app');
     } else {
       //print(ret);
       Navigator.of(context).pop();
@@ -555,8 +636,14 @@ class _LoginPageState extends State<LoginPage> {
       context: context,
       builder: (BuildContext context) {
         return SizedBox(
-          height: MediaQuery.of(context).size.height * 0.25 +
-              MediaQuery.of(context).viewInsets.bottom,
+          height: MediaQuery
+              .of(context)
+              .size
+              .height * 0.25 +
+              MediaQuery
+                  .of(context)
+                  .viewInsets
+                  .bottom,
           child: Column(
             children: [
               const Padding(padding: EdgeInsets.only(top: 10)),
@@ -593,7 +680,7 @@ class _LoginPageState extends State<LoginPage> {
                           .signUp(email, password);
                       if (ret == null) {
                         //displayFailedSignup
-                        displayFailSnackbar(
+                        displayFailSnackbar(context,
                             'There was an error Signing-Up to the app');
                       } else {
                         //print(ret);
@@ -603,7 +690,10 @@ class _LoginPageState extends State<LoginPage> {
                     }
                   },
                   child: Container(
-                    width: MediaQuery.of(context).size.width * 0.25,
+                    width: MediaQuery
+                        .of(context)
+                        .size
+                        .width * 0.25,
                     color: Colors.blue,
                     child: const Center(child: Text('Confirm')),
                   ))
@@ -617,7 +707,9 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    Status currStatus = context.watch<AuthNotifier>().status;
+    Status currStatus = context
+        .watch<AuthNotifier>()
+        .status;
 
     return Scaffold(
       body: Column(
@@ -649,55 +741,61 @@ class _LoginPageState extends State<LoginPage> {
           /* Login button: */
           ((currStatus == Status.unauthenticated)
               ? TextButton(
-                  onPressed: _onLoginButtonPress,
-                  child: Container(
-                    width: MediaQuery.of(context).size.width * 0.8,
-                    padding: const EdgeInsets.only(
-                      left: 60.0,
-                      right: 60.0,
-                      top: 10.0,
-                      bottom: 10.0,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(9.0),
-                      color: Colors.deepPurple,
-                    ),
-                    child: const Center(
-                      child:
-                          Text('Log In', style: TextStyle(color: Colors.white)),
-                    ),
-                  ),
-                )
+            onPressed: _onLoginButtonPress,
+            child: Container(
+              width: MediaQuery
+                  .of(context)
+                  .size
+                  .width * 0.8,
+              padding: const EdgeInsets.only(
+                left: 60.0,
+                right: 60.0,
+                top: 10.0,
+                bottom: 10.0,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(9.0),
+                color: Colors.deepPurple,
+              ),
+              child: const Center(
+                child:
+                Text('Log In', style: TextStyle(color: Colors.white)),
+              ),
+            ),
+          )
               : const Padding(
-                  padding: EdgeInsets.all(15.0),
-                  child: LinearProgressIndicator(),
-                )),
+            padding: EdgeInsets.all(15.0),
+            child: LinearProgressIndicator(),
+          )),
           /* Sign Up button: */
           ((currStatus == Status.unauthenticated)
               ? TextButton(
-                  onPressed: _onSignUpButtonPress, // ! Change to _onSignUpPress
-                  child: Container(
-                    width: MediaQuery.of(context).size.width * 0.8,
-                    padding: const EdgeInsets.only(
-                      left: 60.0,
-                      right: 60.0,
-                      top: 10.0,
-                      bottom: 10.0,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(9.0),
-                      color: Colors.blue,
-                    ),
-                    child: const Center(
-                      child: Text('New user? Click to sign up',
-                          style: TextStyle(color: Colors.white)),
-                    ),
-                  ),
-                )
+            onPressed: _onSignUpButtonPress, // ! Change to _onSignUpPress
+            child: Container(
+              width: MediaQuery
+                  .of(context)
+                  .size
+                  .width * 0.8,
+              padding: const EdgeInsets.only(
+                left: 60.0,
+                right: 60.0,
+                top: 10.0,
+                bottom: 10.0,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(9.0),
+                color: Colors.blue,
+              ),
+              child: const Center(
+                child: Text('New user? Click to sign up',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ),
+          )
               : const Padding(
-                  padding: EdgeInsets.all(15.0),
-                  child: LinearProgressIndicator(),
-                )),
+            padding: EdgeInsets.all(15.0),
+            child: LinearProgressIndicator(),
+          )),
         ],
       ),
     );
