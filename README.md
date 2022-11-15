@@ -11,13 +11,23 @@ It is used to snap a SnappingSheet to a specific position, stop the snapping, an
 
 ##### Question 2
 
-The parameter that controls this behavior is `snappingCurve` which gets a `Curve` and uses that animation to snap into position.
+The parameter that controls this behavior is `snappingCurve` which gets a `Curve` and uses that animation to snap into position. The `snappingCurve` parameter is a part of the `snappingPosition` class.
 
-```python
-ask!!!!!!
+For example:
+
+```dart
+ SnappingPosition.pixels(
+                positionPixels: 400,
+                snappingCurve: Curves.elasticOut,
+                snappingDuration: Duration(milliseconds: 1750),
+            ),
 ```
+
+This snapping position will use the elastic out animation, and it will last 1750 miliseconds.
 
 
 ##### Question 3
 
-`GestureDetector` provides the developer with more control (it gives more gesture detection options such dragging, pinching) while `InkWell` has a ripple effect when clicking it.
+The `GestureDetector` widget provides the developer with more control (for example, it gives more gesture detection options such as dragging and pinching).
+
+The `InkWell` widget has a ripple effect when clicking it, but its more limited.
